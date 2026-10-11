@@ -1,0 +1,128 @@
+package com.example.jarvisai
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                JarvisChatScreen()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun JarvisChatScreen() {
+    val aiClient = remember { AiClient() }
+    val coroutineScope = rememberCoroutineScope()
+    var userInput by remember { mutableStateOf("") }
+    var chatHistory by remember { mutableStateOf(listOf("Sir, Jarvis is online and ready.")) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Jarvis AI Assistant") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Chat history list
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    chatHistory.forEach { message ->
+                        Text(text = message, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+
+            // Input section
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = userInput,
+                    onValueChange = { userInput = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                    placeholder = { Text("Ask Jarvis...") },
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (userInput.isNotBlank() && !isLoading) {
+                                val currentQuery = userInput
+                                userInput = ""
+                                chatHistory = chatHistory + "You: $currentQuery"
+                                isLoading = true
+                                coroutineScope.launch {
+                                    val response = aiClient.getResponse(currentQuery)
+                                    chatHistory = chatHistory + "Jarvis: $response"
+                                    isLoading = false
+                                }
+                            }
+                        }
+                    )
+                )
+
+                Button(
+                    onClick = {
+                        if (userInput.isNotBlank() && !isLoading) {
+                            val currentQuery = userInput
+                            userInput = ""
+                            chatHistory = chatHistory + "You: $currentQuery"
+                            isLoading = true
+                            coroutineScope.launch {
+                                val response = aiClient.getResponse(currentQuery)
+                                chatHistory = chatHistory + "Jarvis: $response"
+                                isLoading = false
+                            }
+                        }
+                    },
+                    enabled = !isLoading
+                ) {
+                    Text(if (isLoading) "..." else "Send")
+                }
+            }
+        }
+    }
+}
